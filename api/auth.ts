@@ -16,9 +16,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'El correo electrónico es requerido.' });
       }
 
-      // Buscar perfil en Neon por email o full_name
+      // Buscar perfil en Neon por email o full_name, evaluando contraseña con pgcrypto si está en formato bcrypt
       const rows = await sql`
-        SELECT id, company_id, full_name, role, avatar_url, email, password_hash
+        SELECT 
+          id, company_id, full_name, role, avatar_url, email, password_hash,
+          CASE 
+            WHEN password_hash IS NULL THEN true
+            WHEN password_hash LIKE '$2%' THEN (password_hash = crypt(${password || ''}, password_hash))
+            ELSE (password_hash = ${password || ''})
+          END AS is_password_valid
         FROM public.profiles
         WHERE LOWER(email) = ${email} OR LOWER(full_name) = ${email}
         LIMIT 1
@@ -52,9 +58,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const userRow = rows[0];
 
-      // Verificación de contraseña: Si existe password_hash se compara, si no, se permite acceso
-      if (userRow.password_hash && password && userRow.password_hash !== password) {
-        return res.status(401).json({ error: 'Contraseña incorrecta.' });
+      // Verificación de contraseña: Si el perfil tiene contraseña configurada, se exige y valida
+      if (userRow.password_hash) {
+        if (!password || !userRow.is_password_valid) {
+          return res.status(401).json({ error: 'Contraseña incorrecta.' });
+        }
+
+        // Si la contraseña estaba guardada en texto plano, la migramos automáticamente a Bcrypt hash
+        if (!userRow.password_hash.startsWith('$2')) {
+          try {
+            await sql`
+              UPDATE public.profiles
+              SET password_hash = crypt(${password}, gen_salt('bf', 10))
+              WHERE id = ${userRow.id}
+            `;
+          } catch (migrateErr) {
+            console.warn('[api/auth] No se pudo rehashear contraseña:', migrateErr);
+          }
+        }
       }
 
       return res.status(200).json({
