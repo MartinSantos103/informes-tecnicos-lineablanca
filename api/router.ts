@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from 'http';
-import companyHandler from './company.ts';
-import reportsHandler from './reports.ts';
-import authHandler from './auth.ts';
-import keepAliveHandler from './keep-alive.ts';
+import companyHandler from './company.js';
+import reportsHandler from './reports.js';
+import authHandler from './auth.js';
+import keepAliveHandler from './keep-alive.js';
 
 export async function apiMiddleware(
   req: IncomingMessage,

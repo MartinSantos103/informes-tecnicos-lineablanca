@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql } from './db.ts';
+import { getSql } from './db.js';
 
 const DEFAULT_COMPANY = {
   name: 'Service Santos',

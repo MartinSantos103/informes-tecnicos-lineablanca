@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql } from './db.ts';
+import { getSql } from './db.js';
 
 function padReportNumber(num: number): string {
   return String(num).padStart(6, '0');

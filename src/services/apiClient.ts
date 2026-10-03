@@ -1,6 +1,32 @@
 /**
  * Cliente HTTP ligero para invocar los endpoints de la API de Neon (/api/*)
  */
+async function parseErrorMessage(response: Response, defaultMessage: string): Promise<string> {
+  try {
+    const errorData = await response.json();
+    if (typeof errorData === 'string') {
+      return errorData;
+    }
+    if (errorData && typeof errorData.error === 'string') {
+      return errorData.error;
+    }
+    if (errorData?.error && typeof errorData.error === 'object') {
+      return errorData.error.message || errorData.error.code || JSON.stringify(errorData.error);
+    }
+    if (typeof errorData?.message === 'string') {
+      return errorData.message;
+    }
+  } catch {
+    try {
+      const text = await response.text();
+      if (text) return text.substring(0, 150);
+    } catch {
+      // Ignorar fallback
+    }
+  }
+  return `${defaultMessage} (${response.status})`;
+}
+
 export const apiClient = {
   async get<T>(url: string, params?: Record<string, any>): Promise<T> {
     const fullUrl = new URL(url, window.location.origin);
@@ -20,8 +46,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error en la solicitud GET ${url} (${response.status})`);
+      const msg = await parseErrorMessage(response, `Error en la solicitud GET ${url}`);
+      throw new Error(msg);
     }
 
     return response.json();
@@ -38,8 +64,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error en la solicitud POST ${url} (${response.status})`);
+      const msg = await parseErrorMessage(response, `Error en la solicitud POST ${url}`);
+      throw new Error(msg);
     }
 
     return response.json();
@@ -56,8 +82,8 @@ export const apiClient = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error || `Error en la solicitud PUT ${url} (${response.status})`);
+      const msg = await parseErrorMessage(response, `Error en la solicitud PUT ${url}`);
+      throw new Error(msg);
     }
 
     return response.json();
