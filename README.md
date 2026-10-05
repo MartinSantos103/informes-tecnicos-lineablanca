@@ -1,4 +1,4 @@
-# Sistema de Informes Técnicos - Service Santos
+# Sistema de Informes Técnicos
 
 Aplicación web diseñada para técnicos de servicio en campo (línea blanca, refrigeración y mantenimiento). Permite registrar intervenciones técnicas, calcular presupuestos y generar informes en PDF con formato profesional listos para compartir por WhatsApp o correo electrónico desde el teléfono o la computadora.
 

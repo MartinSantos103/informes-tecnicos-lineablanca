@@ -7,7 +7,6 @@ interface CompanyContextType {
   company: Company | null;
   isLoading: boolean;
   updateCompany: (data: Partial<Company>) => Promise<Company>;
-  resetCompany: () => Promise<Company>;
   refreshCompany: () => Promise<void>;
 }
 
@@ -47,19 +46,12 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return updated;
   };
 
-  const resetCompany = async () => {
-    const resetData = await reportService.resetCompany();
-    setCompany(resetData);
-    return resetData;
-  };
-
   return (
     <CompanyContext.Provider
       value={{
         company,
         isLoading,
         updateCompany,
-        resetCompany,
         refreshCompany: loadCompany,
       }}
     >

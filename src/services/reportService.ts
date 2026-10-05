@@ -16,12 +16,6 @@ export const reportService = {
     return apiClient.put<Company>('/api/company', companyData);
   },
 
-  /**
-   * Restablecer los datos de la empresa a los valores por defecto
-   */
-  async resetCompany(): Promise<Company> {
-    return apiClient.post<Company>('/api/company?action=reset', { reset: true });
-  },
 
   /**
    * Generar o estimar siguiente número correlativo de informe (e.g. "000008")

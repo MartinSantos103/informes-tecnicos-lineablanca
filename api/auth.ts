@@ -31,26 +31,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
 
       if (rows.length === 0) {
-        // Fallback: si no hay perfiles creados aún o ingresa el correo principal
-        const firstProfile = await sql`
-          SELECT id, company_id, full_name, role, avatar_url, email
-          FROM public.profiles
-          LIMIT 1
-        `;
-        if (firstProfile.length > 0 && email.includes('santos')) {
-          const u = firstProfile[0];
-          return res.status(200).json({
-            user: {
-              id: u.id,
-              company_id: u.company_id,
-              full_name: u.full_name || 'Técnico Javier Santos',
-              email: u.email || email,
-              role: u.role || 'technician',
-              avatar_url: u.avatar_url,
-            },
-          });
-        }
-
         return res.status(401).json({
           error: 'Credenciales inválidas. Usuario no registrado en la base de datos.',
         });

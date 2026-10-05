@@ -20,11 +20,11 @@ import {
 } from 'lucide-react';
 
 export const CompanySettingsPage: React.FC = () => {
-  const { company, updateCompany, resetCompany } = useCompany();
+  const { company, updateCompany } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     show: boolean;
-    action: 'SAVE' | 'RESET';
+    action: 'SAVE';
     dataToSave?: CompanyFormData;
   }>({ show: false, action: 'SAVE' });
 
@@ -76,11 +76,6 @@ export const CompanySettingsPage: React.FC = () => {
     setConfirmModal({ show: true, action: 'SAVE', dataToSave: data });
   };
 
-  // Solicitar restablecimiento por defecto
-  const handleRequestReset = () => {
-    setConfirmModal({ show: true, action: 'RESET' });
-  };
-
   const handleCancelModal = () => {
     setConfirmModal({ show: false, action: 'SAVE' });
     setToast({ show: true, message: 'Operación cancelada', type: 'cancel' });
@@ -97,18 +92,6 @@ export const CompanySettingsPage: React.FC = () => {
       if (action === 'SAVE' && pendingData) {
         await updateCompany(pendingData);
         setToast({ show: true, message: 'Datos cambiados correctamente', type: 'success' });
-      } else if (action === 'RESET') {
-        const defaultCompany = await resetCompany();
-        reset({
-          name: defaultCompany.name,
-          logo_url: defaultCompany.logo_url || '',
-          address: defaultCompany.address,
-          phone: defaultCompany.phone,
-          email: defaultCompany.email,
-          website: defaultCompany.website || '',
-          legal_notice: defaultCompany.legal_notice || '',
-        });
-        setToast({ show: true, message: 'Datos de la empresa restablecidos por defecto', type: 'success' });
       }
       setTimeout(() => setToast((t) => ({ ...t, show: false })), 3000);
     } catch (err: any) {
@@ -140,21 +123,15 @@ export const CompanySettingsPage: React.FC = () => {
           />
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10 space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-150">
             <div className="flex items-start gap-3">
-              <div
-                className={`p-3 rounded-xl flex items-center justify-center ${
-                  confirmModal.action === 'RESET' ? 'bg-amber-50 text-amber-600' : 'bg-brand-50 text-brand-600'
-                }`}
-              >
-                {confirmModal.action === 'RESET' ? <RotateCcw className="w-6 h-6" /> : <Save className="w-6 h-6" />}
+              <div className="p-3 rounded-xl flex items-center justify-center bg-brand-50 text-brand-600">
+                <Save className="w-6 h-6" />
               </div>
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-slate-900">
-                  {confirmModal.action === 'RESET' ? 'Confirmar Restablecimiento' : 'Confirmar Cambios'}
+                  Confirmar Cambios
                 </h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  {confirmModal.action === 'RESET'
-                    ? 'Se restaurarán todos los datos institucionales (Nombre, Dirección, Teléfono, Email y Nota Legal) a los valores corporativos por defecto de Service Santos.'
-                    : 'Los datos cargados previamente en los campos editados se sobreescribirán y no será posible acceder a ellos mediante este programa. Siempre será posible restaurar los datos a un estado inicial por defecto.'}
+                  Los datos cargados previamente en los campos editados se sobreescribirán y no será posible acceder a ellos mediante este programa. Siempre será posible restaurar los datos a un estado inicial por defecto.
                 </p>
               </div>
             </div>
@@ -170,19 +147,9 @@ export const CompanySettingsPage: React.FC = () => {
               <button
                 type="button"
                 onClick={handleExecuteAction}
-                className={`px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all flex items-center gap-1.5 ${
-                  confirmModal.action === 'RESET' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-brand-600 hover:bg-brand-700'
-                }`}
+                className="px-4 py-2 text-xs font-semibold text-white rounded-xl shadow-sm transition-all flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700"
               >
-                {confirmModal.action === 'RESET' ? (
-                  <>
-                    <RotateCcw className="w-3.5 h-3.5" /> Restablecer Datos
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5" /> Confirmar
-                  </>
-                )}
+                <Save className="w-3.5 h-3.5" /> Confirmar
               </button>
             </div>
           </div>
@@ -219,7 +186,7 @@ export const CompanySettingsPage: React.FC = () => {
             <Input
               label="Nombre de la Empresa"
               required
-              placeholder="Ej: Servicio Técnico Santos"
+              placeholder="Ej: Mi Empresa S.A."
               error={errors.name?.message}
               icon={<Building className="w-4 h-4" />}
               {...register('name')}
@@ -296,7 +263,7 @@ export const CompanySettingsPage: React.FC = () => {
               label="Correo Electrónico Oficial"
               required
               type="email"
-              placeholder="Ej: contacto@servicesantos.com"
+              placeholder="Ej: contacto@miempresa.com"
               error={errors.email?.message}
               icon={<Mail className="w-4 h-4" />}
               {...register('email')}
@@ -304,7 +271,7 @@ export const CompanySettingsPage: React.FC = () => {
 
             <Input
               label="Sitio Web"
-              placeholder="Ej: www.servicesantos.com"
+              placeholder="Ej: www.miempresa.com"
               error={errors.website?.message}
               icon={<Globe className="w-4 h-4" />}
               {...register('website')}
@@ -329,19 +296,7 @@ export const CompanySettingsPage: React.FC = () => {
         </Card>
 
         {/* BARRA DE BOTONES DE ACCIÓN */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-200">
-          <Button
-            type="button"
-            variant="outline"
-            size="md"
-            onClick={handleRequestReset}
-            disabled={isSubmitting}
-            icon={<RotateCcw className="w-4 h-4 text-amber-600" />}
-            className="w-full sm:w-auto text-amber-700 border-amber-300 hover:bg-amber-50"
-          >
-            Restablecer Valores por Defecto
-          </Button>
-
+        <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-4 border-t border-slate-200">
           <Button
             type="submit"
             size="lg"
