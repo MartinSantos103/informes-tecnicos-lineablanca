@@ -42,7 +42,7 @@ export const NewReportPage: React.FC = () => {
       <ReportForm
         onSubmit={handleCreate}
         isLoading={isSubmitting}
-        submitButtonText="Guardar y Generar PDF"
+        submitButtonText="Guardar PDF"
       />
     </div>
   );

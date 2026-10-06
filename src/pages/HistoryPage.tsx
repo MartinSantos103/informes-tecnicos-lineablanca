@@ -40,7 +40,7 @@ export const HistoryPage: React.FC = () => {
             Historial de Informes Técnicos
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 font-medium">
-            Consulta, filtra y vuelve a emitir o descargar los presupuestos e informes registrados.
+            Consulta, filtra y  descargar los informes registrados.
           </p>
         </div>
 
