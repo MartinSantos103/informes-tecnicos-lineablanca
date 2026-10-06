@@ -1,10 +1,56 @@
-import React from 'react';
-import { Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Loader2, HelpCircle, X } from 'lucide-react';
+
+export const InfoPopover: React.FC<{ text: React.ReactNode }> = ({ text }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.addEventListener('mousedown', handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <span className="relative inline-flex items-center align-middle ml-1.5" ref={popoverRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          setIsOpen(!isOpen);
+        }}
+        className="text-slate-400 hover:text-slate-600 transition-colors focus:outline-none"
+      >
+        <HelpCircle className="w-3.5 h-3.5" />
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 -left-2 sm:left-1/2 sm:-translate-x-1/2 bottom-full mb-2 w-64 bg-slate-800 text-white text-[11px] p-3 rounded-lg shadow-xl font-normal leading-relaxed before:content-[''] before:absolute before:top-full before:left-3 sm:before:left-1/2 sm:before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-slate-800">
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="absolute top-1.5 right-1.5 text-slate-400 hover:text-white"
+          >
+            <X className="w-3 h-3" />
+          </button>
+          <div className="pr-3">{text}</div>
+        </div>
+      )}
+    </span>
+  );
+};
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label: string;
+  label: React.ReactNode;
   error?: string;
-  helperText?: string;
+  helperText?: React.ReactNode;
   icon?: React.ReactNode;
   rightElement?: React.ReactNode;
 }
@@ -42,7 +88,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {error ? (
           <p className="text-xs text-rose-600 font-medium">{error}</p>
         ) : helperText ? (
-          <p className="text-[11px] text-slate-500">{helperText}</p>
+          <div className="text-[11px] text-slate-500">{helperText}</div>
         ) : null}
       </div>
     );
@@ -51,9 +97,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 Input.displayName = 'Input';
 
 interface TextAreaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  label: string;
+  label: React.ReactNode;
   error?: string;
-  helperText?: string;
+  helperText?: React.ReactNode;
 }
 
 export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
@@ -76,7 +122,7 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
         {error ? (
           <p className="text-xs text-rose-600 font-medium">{error}</p>
         ) : helperText ? (
-          <p className="text-[11px] text-slate-500">{helperText}</p>
+          <div className="text-[11px] text-slate-500">{helperText}</div>
         ) : null}
       </div>
     );
@@ -85,7 +131,7 @@ export const TextArea = React.forwardRef<HTMLTextAreaElement, TextAreaProps>(
 TextArea.displayName = 'TextArea';
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-  label: string;
+  label: React.ReactNode;
   error?: string;
   options: readonly string[] | { label: string; value: string }[];
 }

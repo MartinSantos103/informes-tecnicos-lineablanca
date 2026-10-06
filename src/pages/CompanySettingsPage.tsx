@@ -3,7 +3,7 @@ import { useCompany } from '../contexts/CompanyContext';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { companySettingsSchema, CompanyFormData } from '../utils/validation';
-import { Input, TextArea, Button, Card } from '../components/common/UIComponents';
+import { Input, TextArea, Button, Card, InfoPopover } from '../components/common/UIComponents';
 import {
   Building,
   Save,
@@ -193,8 +193,13 @@ export const CompanySettingsPage: React.FC = () => {
             />
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
+              <label className="flex items-center text-xs font-semibold text-slate-700 mb-1">
                 Logotipo Corporativo (PDF)
+                <InfoPopover text={
+                  <>
+                    <span className="font-semibold text-white">Medidas recomendadas:</span> Formato horizontal 3:1 (aprox. <span className="font-medium text-slate-200">600 × 200 px</span> o superior). Formato PNG con fondo transparente o JPG de alta calidad para garantizar nitidez en el PDF y la cabecera.
+                  </>
+                } />
               </label>
               <div className="flex items-center gap-3">
                 <input
@@ -227,9 +232,6 @@ export const CompanySettingsPage: React.FC = () => {
                   <span className="text-[11px] text-slate-400">Sin logo (se usará texto)</span>
                 )}
               </div>
-              <p className="text-[11px] text-slate-500 mt-2 leading-relaxed">
-                <span className="font-semibold text-slate-700">Medidas recomendadas:</span> Formato horizontal 3:1 (aprox. <span className="font-medium text-slate-800">600 × 200 px</span> o superior). Formato PNG con fondo transparente o JPG de alta calidad para garantizar nitidez en el PDF y la cabecera.
-              </p>
             </div>
           </div>
         </Card>
@@ -286,10 +288,14 @@ export const CompanySettingsPage: React.FC = () => {
           </h3>
 
           <TextArea
-            label="Texto Legal (Pie de página en PDF)"
+            label={
+              <span className="flex items-center">
+                Texto Legal (Pie de página en PDF)
+                <InfoPopover text="Ejemplo: Esta estimación no constituye una factura ni contrato de prestación de servicios." />
+              </span>
+            }
             required
             rows={3}
-            helperText="Ejemplo: Esta estimación no constituye una factura ni contrato de prestación de servicios."
             error={errors.legal_notice?.message}
             {...register('legal_notice')}
           />
