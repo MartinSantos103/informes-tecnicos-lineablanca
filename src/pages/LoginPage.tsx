@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { Input, Button, Card } from '../components/common/UIComponents';
 import { Wrench, Lock, Mail, LogIn, Eye, EyeOff, FilePenLine } from 'lucide-react';
-import { useCompany } from '../contexts/CompanyContext';
 
 export const LoginPage: React.FC = () => {
-  const { login } = useAuth();
-  const { company } = useCompany();
+  const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
@@ -16,6 +14,13 @@ export const LoginPage: React.FC = () => {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Redirigir al inicio si ya está logeado
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,11 +42,7 @@ export const LoginPage: React.FC = () => {
       {/* Cabecera del Login */}
       <header className="w-full px-6 py-4 bg-brand-900 border-b border-brand-800 flex items-center gap-3 text-white shadow-md">
         <div className="text-brand-300">
-          {company?.logo_url ? (
-            <img src={company.logo_url} alt="Logo" className="h-8 max-w-[120px] object-contain rounded bg-white p-1" />
-          ) : (
-            <FilePenLine className="w-6 h-6 text-brand-300" />
-          )}
+          <FilePenLine className="w-6 h-6 text-brand-300" />
         </div>
         <span className="font-bold text-white text-lg tracking-tight">Informes Técnicos</span>
       </header>
@@ -130,7 +131,7 @@ export const LoginPage: React.FC = () => {
           </Card>
           
           <footer className="text-center text-[11px] text-stone-500 font-medium mt-6">
-            © {new Date().getFullYear()} {company?.name || 'Sistema de Informes'}. Todos los derechos reservados.
+            © {new Date().getFullYear()} Sistema de Informes. Todos los derechos reservados.
           </footer>
         </div>
       </div>
