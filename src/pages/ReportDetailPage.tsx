@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Copy,
   Check,
+  Eye,
 } from 'lucide-react';
 import { formatCurrency, formatDateSpanish } from '../utils/formatters';
 import { PDFViewer } from '@react-pdf/renderer';
@@ -23,7 +24,7 @@ export const ReportDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { company } = useCompany();
-  const { isSharing, downloadPDF } = useShare();
+  const { isSharing, downloadPDF, openPDF } = useShare();
 
   const [report, setReport] = useState<TechnicalReport | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -164,10 +165,38 @@ ${company.name} • Tel: ${company.phone} • Email: ${company.email}`;
       {activeTab === 'pdf' && (
         <div className="space-y-4">
           <div className="bg-slate-800 rounded-2xl p-2 sm:p-4 shadow-xl border border-slate-700">
-            <div className="h-[500px] sm:h-[700px] w-full rounded-xl overflow-hidden bg-white">
+            {/* Escritorio: PDFViewer embebido */}
+            <div className="hidden sm:block h-[700px] w-full rounded-xl overflow-hidden bg-white">
               <PDFViewer width="100%" height="100%" showToolbar={true}>
                 <TechnicalReportPDF report={report} company={company} />
               </PDFViewer>
+            </div>
+
+            {/* Mobile: Tarjeta con botón para abrir en nueva pestaña */}
+            <div className="sm:hidden text-center p-6 bg-white rounded-xl space-y-3">
+              <FileText className="w-12 h-12 text-brand-600 mx-auto" />
+              <h3 className="text-sm font-bold text-slate-900">
+                PDF Generado Vectorial N° #{report.report_number}
+              </h3>
+              <p className="text-xs text-slate-500">
+                Abre el informe para previsualizarlo o descárgalo directamente a tu dispositivo.
+              </p>
+              <div className="flex flex-col gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => openPDF(report, company)}
+                  icon={<Eye className="w-4 h-4" />}
+                >
+                  Abrir Vista Previa
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => downloadPDF(report, company)}
+                  icon={<Download className="w-4 h-4" />}
+                >
+                  Descargar PDF
+                </Button>
+              </div>
             </div>
           </div>
         </div>

@@ -38,9 +38,28 @@ export const useShare = () => {
     }
   };
 
+  /**
+   * Abrir PDF en una nueva pestaña (Ideal para móviles)
+   */
+  const openPDF = async (report: TechnicalReport, company: Company) => {
+    try {
+      setIsSharing(true);
+      const blob = await generatePDFBlob(report, company);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
+      // Limpiar URL después de un tiempo para evitar fugas de memoria
+      setTimeout(() => URL.revokeObjectURL(url), 15000);
+    } catch (err: any) {
+      setShareError(err.message || 'Error al abrir PDF');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return {
     isSharing,
     shareError,
     downloadPDF,
+    openPDF,
   };
 };
