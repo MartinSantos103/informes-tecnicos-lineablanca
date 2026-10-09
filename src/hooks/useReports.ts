@@ -51,6 +51,11 @@ export const useReports = (initialFilters?: Partial<FilterOptions>, initialPageS
     return created;
   };
 
+  const deleteReport = async (id: string, requestorId: string): Promise<void> => {
+    await reportService.deleteReport(id, requestorId);
+    await fetchReports();
+  };
+
   return {
     reports,
     totalCount,
@@ -64,5 +69,6 @@ export const useReports = (initialFilters?: Partial<FilterOptions>, initialPageS
     setFilters: updateFilters,
     refreshReports: fetchReports,
     createReport,
+    deleteReport,
   };
 };

@@ -68,4 +68,11 @@ export const reportService = {
   async createReport(dto: CreateReportDTO): Promise<TechnicalReport> {
     return apiClient.post<TechnicalReport>('/api/reports', dto);
   },
+
+  /**
+   * Eliminar un informe técnico por ID
+   */
+  async deleteReport(id: string, requestorId: string): Promise<void> {
+    return apiClient.delete(`/api/reports?id=${id}&requestorId=${requestorId}`);
+  },
 };

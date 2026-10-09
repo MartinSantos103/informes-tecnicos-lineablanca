@@ -107,15 +107,17 @@ export const TechnicalReportPDF: React.FC<TechnicalReportPDFProps> = ({ report, 
           </View>
         </View>
 
-        {/* CAUSA DE LA FALLA (SECCIÓN OBLIGATORIA) */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Causa</Text>
+        {/* CAUSA DE LA FALLA (OPCIONAL) */}
+        {report.cause ? (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Causa</Text>
+            </View>
+            <View style={styles.contentBlock}>
+              <Text style={styles.bodyText}>{report.cause}</Text>
+            </View>
           </View>
-          <View style={styles.contentBlock}>
-            <Text style={styles.bodyText}>{report.cause}</Text>
-          </View>
-        </View>
+        ) : null}
 
         {/* TRABAJO RECOMENDADO / A REALIZAR */}
         <View style={styles.section}>

@@ -69,9 +69,7 @@ Fecha de Emisión: ${formatDateSpanish(report.date)}
 🔍 DIAGNÓSTICO TÉCNICO:
 ${report.diagnosis}
 
-⚡ CAUSA DEL ORIGEN DE LA FALLA:
-${report.cause}
-
+${report.cause ? `\n⚡ CAUSA DEL ORIGEN DE LA FALLA:\n${report.cause}\n` : ''}
 ⚙️ TRABAJO RECOMENDADO / REPUESTOS:
 ${report.work_description}
 
@@ -264,12 +262,14 @@ ${company.name} • Tel: ${company.phone} • Email: ${company.email}`;
           </Card>
 
           {/* Causa de la Falla */}
-          <Card className="space-y-2 md:col-span-2">
-            <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-600" /> Causa del Origen de la Falla
-            </h3>
-            <p className="text-xs text-slate-700 leading-relaxed">{report.cause}</p>
-          </Card>
+          {report.cause && (
+            <Card className="space-y-2 md:col-span-2">
+              <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2 flex items-center gap-1.5">
+                <AlertCircle className="w-4 h-4 text-amber-600" /> Causa del Origen de la Falla
+              </h3>
+              <p className="text-xs text-slate-700 leading-relaxed">{report.cause}</p>
+            </Card>
+          )}
 
           {/* Trabajo recomendado */}
           <Card className="space-y-2 md:col-span-2">

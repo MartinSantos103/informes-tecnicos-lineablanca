@@ -6,9 +6,11 @@ import { TechnicalReport, CreateReportDTO, EQUIPMENT_TYPES, POPULAR_BRANDS } fro
 import { Input, TextArea, Select, Button, Card } from '../common/UIComponents';
 import { reportService } from '../../services/reportService';
 import { FileCheck, FilePenLine, User, MapPin, Phone, Mail, Wrench, AlertCircle, HelpCircle, DollarSign, Calendar } from 'lucide-react';
+import { useCompany } from '../../contexts/CompanyContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ReportFormProps {
-  initialValues?: TechnicalReport;
+  initialValues?: Partial<TechnicalReport>;
   onSubmit: (data: CreateReportDTO) => Promise<void>;
   isLoading?: boolean;
   submitButtonText?: string;
@@ -20,15 +22,17 @@ export const ReportForm: React.FC<ReportFormProps> = ({
   isLoading = false,
   submitButtonText = 'Generar Informe Técnico PDF',
 }) => {
+  const { company } = useCompany();
+  const { user } = useAuth();
   const [estimatedReportNumber, setEstimatedReportNumber] = useState<string>(
     initialValues?.report_number || '...'
   );
 
   useEffect(() => {
-    if (!initialValues) {
+    if (!initialValues?.report_number) {
       reportService.getNextReportNumber().then((num) => setEstimatedReportNumber(num));
     }
-  }, [initialValues]);
+  }, [initialValues?.report_number, company?.id]);
 
   const {
     register,
@@ -60,7 +64,8 @@ export const ReportForm: React.FC<ReportFormProps> = ({
   const onFormSubmit = async (data: ReportFormData) => {
     await onSubmit({
       ...data,
-      company_id: initialValues?.company_id,
+      cause: data.cause || '',
+      company_id: initialValues?.company_id || company?.id || user?.company_id,
     });
   };
 
@@ -140,7 +145,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           />
 
           <Input
-            label="Correo Electrónico (Opcional)"
+            label="Correo Electrónico"
             placeholder="Ej: cliente@gmail.com"
             type="email"
             error={errors.email?.message}
@@ -209,7 +214,7 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           />
 
           <Input
-            label="N° de Serie (Opcional)"
+            label="N° de Serie"
             placeholder="Ej: SN-9823412 (o dejar vacío)"
             error={errors.serial_number?.message}
             {...register('serial_number')}
@@ -239,7 +244,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({
           <TextArea
             label="Causa del Origen de la Falla"
             placeholder="Detallar textualmente el motivo u origen por el cual se produjo la falla (ej: Sobretensión en la red eléctrica, corrosión en cañerías por humedad, desgaste por uso prolongado)..."
-            required
             rows={3}
             error={errors.cause?.message}
             {...register('cause')}
@@ -271,7 +275,6 @@ export const ReportForm: React.FC<ReportFormProps> = ({
             placeholder="Ej: 85000"
             type="number"
             step="100"
-            required
             error={errors.estimated_cost?.message}
             icon={<DollarSign className="w-4 h-4 text-emerald-600" />}
             {...register('estimated_cost')}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useReports } from '../hooks/useReports';
 import { ReportFilter } from '../components/reports/ReportFilter';
 import { ReportCard } from '../components/reports/ReportCard';
@@ -11,8 +11,11 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Trash2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { TechnicalReport } from '../types';
 
 export const HistoryPage: React.FC = () => {
   const {
@@ -25,7 +28,25 @@ export const HistoryPage: React.FC = () => {
     error,
     filters,
     setFilters,
+    deleteReport,
   } = useReports(undefined, 8);
+
+  const { user } = useAuth();
+  const [reportToDelete, setReportToDelete] = useState<TechnicalReport | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const confirmDelete = async () => {
+    if (!reportToDelete || !user?.id) return;
+    setIsDeleting(true);
+    try {
+      await deleteReport(reportToDelete.id, user.id);
+      setReportToDelete(null);
+    } catch (err: any) {
+      alert(err.message || 'Error al eliminar el informe');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const startRecord = totalCount === 0 ? 0 : (page - 1) * 8 + 1;
   const endRecord = Math.min(page * 8, totalCount);
@@ -50,6 +71,41 @@ export const HistoryPage: React.FC = () => {
           </Button>
         </Link>
       </div>
+
+      {reportToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => !isDeleting && setReportToDelete(null)} />
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 z-10 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-3 rounded-xl bg-rose-50 text-rose-600">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Eliminar Informe</h3>
+                <p className="text-xs text-slate-600 mt-1">
+                  ¿Estás seguro que deseas eliminar el informe #{reportToDelete.report_number} perteneciente al cliente {reportToDelete.client_name}? Esta acción es irreversible.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-3 border-t">
+              <button 
+                onClick={() => setReportToDelete(null)} 
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 rounded-xl disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={confirmDelete} 
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl disabled:opacity-50 flex items-center gap-2"
+              >
+                {isDeleting ? 'Eliminando...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* COMPONENTE DE FILTROS Y BÚSQUEDA */}
       <ReportFilter filters={filters} setFilters={setFilters} totalCount={totalCount} />
@@ -103,7 +159,7 @@ export const HistoryPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {reports.map((report) => (
-              <ReportCard key={report.id} report={report} />
+              <ReportCard key={report.id} report={report} onDeleteRequest={setReportToDelete} />
             ))}
           </div>
 

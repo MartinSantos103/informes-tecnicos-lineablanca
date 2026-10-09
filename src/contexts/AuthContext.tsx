@@ -25,6 +25,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (storedReal) {
         try {
           const parsed = JSON.parse(storedReal);
+          if (parsed.role) {
+            parsed.role = parsed.role.toLowerCase();
+          }
           setUser(parsed);
         } catch {
           localStorage.removeItem(REAL_USER_KEY);

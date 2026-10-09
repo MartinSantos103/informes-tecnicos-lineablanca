@@ -13,7 +13,7 @@ interface CompanyContextType {
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
 
 export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [company, setCompany] = useState<Company | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -38,7 +38,7 @@ export const CompanyProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setCompany(null);
       setIsLoading(false);
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, user?.company_id]);
 
   const updateCompany = async (data: Partial<Company>) => {
     const updated = await reportService.updateCompany(data);

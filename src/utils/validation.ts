@@ -15,11 +15,9 @@ export const reportFormSchema = z.object({
     .optional()
     .transform((val) => (val && val.trim() !== '' ? val.trim() : '-')),
   diagnosis: z.string().min(5, 'El diagnóstico técnico debe detallar la falla (mín. 5 caracteres)'),
-  cause: z.string().min(5, 'La causa del origen de la falla es obligatoria (mín. 5 caracteres)'),
+  cause: z.string().optional().or(z.literal('')),
   work_description: z.string().min(5, 'La descripción del trabajo debe ser detallada (mín. 5 caracteres)'),
-  estimated_cost: z.coerce
-    .number({ invalid_type_error: 'Debe ingresar un monto numérico' })
-    .min(0, 'El costo estimado no puede ser negativo'),
+  estimated_cost: z.union([z.coerce.number().min(0), z.literal('')]).transform(v => v === '' ? 0 : Number(v)),
 });
 
 export type ReportFormData = z.infer<typeof reportFormSchema>;
@@ -31,7 +29,7 @@ export const companySettingsSchema = z.object({
   phone: z.string().min(6, 'El teléfono es obligatorio'),
   email: z.string().email('Email inválido'),
   website: z.string().optional().or(z.literal('')),
-  legal_notice: z.string().min(10, 'La nota legal debe tener al menos 10 caracteres'),
+  legal_notice: z.string().optional().or(z.literal('')),
 });
 
 export type CompanyFormData = z.infer<typeof companySettingsSchema>;

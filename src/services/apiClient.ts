@@ -27,6 +27,20 @@ async function parseErrorMessage(response: Response, defaultMessage: string): Pr
   return `${defaultMessage} (${response.status})`;
 }
 
+function getAuthHeaders(): Record<string, string> {
+  try {
+    const stored = localStorage.getItem('app_real_user');
+    if (stored) {
+      const user = JSON.parse(stored);
+      const headers: Record<string, string> = {};
+      if (user.id) headers['x-user-id'] = user.id;
+      if (user.company_id) headers['x-company-id'] = user.company_id;
+      return headers;
+    }
+  } catch {}
+  return {};
+}
+
 export const apiClient = {
   async get<T>(url: string, params?: Record<string, any>): Promise<T> {
     const fullUrl = new URL(url, window.location.origin);
@@ -42,6 +56,7 @@ export const apiClient = {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
+        ...getAuthHeaders(),
       },
     });
 
@@ -59,6 +74,7 @@ export const apiClient = {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        ...getAuthHeaders(),
       },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -77,6 +93,7 @@ export const apiClient = {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        ...getAuthHeaders(),
       },
       body: body ? JSON.stringify(body) : undefined,
     });
@@ -87,5 +104,28 @@ export const apiClient = {
     }
 
     return response.json();
+  },
+
+  async delete<T>(url: string): Promise<T> {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: {
+        'Accept': 'application/json',
+        ...getAuthHeaders(),
+      },
+    });
+
+    if (!response.ok) {
+      const msg = await parseErrorMessage(response, `Error en la solicitud DELETE ${url}`);
+      throw new Error(msg);
+    }
+
+    // Attempt to parse JSON response, but handle empty bodies
+    try {
+      const text = await response.text();
+      return text ? JSON.parse(text) : ({} as T);
+    } catch {
+      return {} as T;
+    }
   },
 };

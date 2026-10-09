@@ -14,7 +14,7 @@ export interface UserProfile {
   company_id?: string;
   full_name: string;
   email: string;
-  role: 'admin' | 'technician';
+  role: 'admin' | 'lead_technician' | 'technician';
   avatar_url?: string;
 }
 

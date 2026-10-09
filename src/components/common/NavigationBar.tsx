@@ -1,8 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { FilePlus, History, Settings } from 'lucide-react';
+import { FilePlus, History, Building } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 export const NavigationBar: React.FC = () => {
+  const { user } = useAuth();
+
   const navItems = [
     {
       to: '/nuevo',
@@ -14,12 +17,15 @@ export const NavigationBar: React.FC = () => {
       label: 'Historial',
       icon: <History className="w-5 h-5" />,
     },
-    {
+  ];
+
+  if (user?.role !== 'technician') {
+    navItems.push({
       to: '/configuracion',
       label: 'Empresa',
-      icon: <Settings className="w-5 h-5" />,
-    },
-  ];
+      icon: <Building className="w-5 h-5" />,
+    });
+  }
 
   return (
     <>

@@ -3,6 +3,7 @@ import companyHandler from './company.js';
 import reportsHandler from './reports.js';
 import authHandler from './auth.js';
 import keepAliveHandler from './keep-alive.js';
+import staffHandler from './staff.js';
 
 export async function apiMiddleware(
   req: IncomingMessage,
@@ -37,8 +38,8 @@ export async function apiMiddleware(
     res.end(data);
   };
 
-  // Leer cuerpo si es POST/PUT
-  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') {
+  // Leer cuerpo si es POST/PUT/PATCH/DELETE
+  if (req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH' || req.method === 'DELETE') {
     let bodyData = '';
     req.on('data', (chunk) => {
       bodyData += chunk;
@@ -67,6 +68,8 @@ async function dispatchRoute(pathname: string, req: any, res: any) {
       await authHandler(req, res);
     } else if (pathname.startsWith('/api/keep-alive')) {
       await keepAliveHandler(req, res);
+    } else if (pathname.startsWith('/api/staff')) {
+      await staffHandler(req, res);
     } else {
       res.status(404).json({ error: `Ruta no encontrada: ${pathname}` });
     }

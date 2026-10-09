@@ -64,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           company_id: userRow.company_id,
           full_name: userRow.full_name || userRow.email,
           email: userRow.email,
-          role: userRow.role || 'technician',
+          role: (userRow.role || 'technician').toLowerCase(),
           avatar_url: userRow.avatar_url,
         },
       });
@@ -80,7 +80,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           LIMIT 1
         `;
         if (rows.length > 0) {
-          return res.status(200).json({ user: rows[0] });
+          const qUser = rows[0];
+          qUser.role = (qUser.role || 'technician').toLowerCase();
+          return res.status(200).json({ user: qUser });
         }
       }
 
@@ -91,7 +93,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         LIMIT 1
       `;
       if (fallback.length > 0) {
-        return res.status(200).json({ user: fallback[0] });
+        const fbUser = fallback[0];
+        fbUser.role = (fbUser.role || 'technician').toLowerCase();
+        return res.status(200).json({ user: fbUser });
       }
 
       return res.status(404).json({ error: 'No se encontraron perfiles' });

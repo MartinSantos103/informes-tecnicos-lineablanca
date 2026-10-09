@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql } from './db.js';
+import { getSql, getRequestContext } from './db.js';
 
 function padReportNumber(num: number): string {
   return String(num).padStart(6, '0');
@@ -28,6 +28,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const sql = getSql();
+    const { user, companyId } = await getRequestContext(req, sql);
 
     if (req.method === 'GET') {
       const { id, action, nextNumber, all, page, pageSize, searchQuery, equipment, sortBy } = req.query;
@@ -38,33 +39,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (rows.length === 0) {
           return res.status(404).json({ error: 'Informe no encontrado' });
         }
+        // Verificar aislamiento de empresa si el usuario está autenticado en una empresa
+        if (companyId && rows[0].company_id && rows[0].company_id !== companyId) {
+          return res.status(403).json({ error: 'No tienes acceso al informe de otra empresa.' });
+        }
         return res.status(200).json(normalizeReportRow(rows[0]));
       }
 
-      // 2. Estimación del siguiente número correlativo (sin avanzar el contador)
+      // 2. Estimación del siguiente número correlativo (sin avanzar el contador) para la empresa actual
       if (action === 'next-number' || nextNumber === 'true') {
-        const counterRows = await sql`
-          SELECT last_number FROM public.company_report_counters LIMIT 1
-        `;
         let nextVal = 1;
-        if (counterRows.length > 0 && counterRows[0].last_number) {
-          nextVal = Number(counterRows[0].last_number) + 1;
-        } else {
-          const maxRows = await sql`
-            SELECT COALESCE(MAX(NULLIF(regexp_replace(report_number, '\\D', '', 'g'), '')::INTEGER), 0) AS max_num
-            FROM public.reports
+        if (companyId) {
+          const counterRows = await sql`
+            SELECT last_number FROM public.company_report_counters WHERE company_id = ${companyId} LIMIT 1
           `;
-          nextVal = Number(maxRows[0]?.max_num || 0) + 1;
+          if (counterRows.length > 0 && counterRows[0].last_number) {
+            nextVal = Number(counterRows[0].last_number) + 1;
+          } else {
+            const maxRows = await sql`
+              SELECT COALESCE(MAX(NULLIF(regexp_replace(report_number, '\\D', '', 'g'), '')::INTEGER), 0) AS max_num
+              FROM public.reports
+              WHERE company_id = ${companyId}
+            `;
+            nextVal = Number(maxRows[0]?.max_num || 0) + 1;
+          }
         }
         return res.status(200).json({ nextReportNumber: padReportNumber(nextVal) });
       }
 
-      // 3. Obtener todos los informes (sin paginar)
+      // 3. Obtener todos los informes de la empresa (sin paginar)
       if (all === 'true') {
-        const rows = await sql`
-          SELECT * FROM public.reports 
-          ORDER BY date DESC, created_at DESC
-        `;
+        const rows = companyId
+          ? await sql`
+              SELECT * FROM public.reports 
+              WHERE company_id = ${companyId}
+              ORDER BY date DESC, created_at DESC
+            `
+          : await sql`
+              SELECT * FROM public.reports 
+              ORDER BY date DESC, created_at DESC
+            `;
         return res.status(200).json(rows.map(normalizeReportRow));
       }
 
@@ -92,6 +106,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const conditions: string[] = ['1=1'];
       const params: any[] = [];
       let pIdx = 1;
+
+      if (companyId) {
+        conditions.push(`company_id = $${pIdx++}`);
+        params.push(companyId);
+      }
 
       if (eq) {
         conditions.push(`equipment = $${pIdx++}`);
@@ -148,16 +167,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-      // Obtener company_id y user_id por defecto si no vienen
-      let companyId = body.company_id;
-      if (!companyId) {
+      // Obtener company_id y user_id de la sesión o del cuerpo
+      let targetCompanyId = body.company_id || companyId;
+      if (!targetCompanyId) {
         const compRows = await sql`SELECT id FROM public.companies ORDER BY created_at ASC LIMIT 1`;
-        companyId = compRows[0]?.id;
+        targetCompanyId = compRows[0]?.id;
       }
 
-      let createdBy = body.created_by;
+      let createdBy = body.created_by || user?.id;
       if (!createdBy) {
-        const profRows = await sql`SELECT id FROM public.profiles LIMIT 1`;
+        const profRows = await sql`SELECT id FROM public.profiles WHERE company_id = ${targetCompanyId} LIMIT 1`;
         createdBy = profRows[0]?.id;
       }
 
@@ -176,7 +195,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const estimatedCost = Number(body.estimated_cost) || 0;
 
       // Inserción en public.reports
-      // El trigger handle_report_insert() generará automáticamente el correlativo y actualizará el contador
+      // El trigger handle_report_insert() generará automáticamente el correlativo y actualizará el contador por empresa
       const inserted = await sql`
         INSERT INTO public.reports (
           company_id,
@@ -195,7 +214,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           work_description,
           estimated_cost
         ) VALUES (
-          ${companyId},
+          ${targetCompanyId},
           ${createdBy},
           ${date},
           ${clientName},
@@ -215,6 +234,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       `;
 
       return res.status(201).json(normalizeReportRow(inserted[0]));
+    }
+
+    if (req.method === 'DELETE') {
+      const { id, requestorId } = req.query;
+      const activeUserId = (requestorId as string) || user?.id;
+
+      if (!id || !activeUserId) {
+        return res.status(400).json({ error: 'Faltan parámetros requeridos.' });
+      }
+
+      // Check requestor role
+      const requestorRes = await sql`SELECT role, company_id FROM public.profiles WHERE id = ${activeUserId}`;
+      if (requestorRes.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado.' });
+      }
+
+      const requestorRole = (requestorRes[0].role || 'technician').toLowerCase();
+      if (requestorRole !== 'admin') {
+        return res.status(403).json({ error: 'No tienes permisos para eliminar informes.' });
+      }
+
+      const userComp = companyId || requestorRes[0].company_id;
+      if (userComp) {
+        await sql`DELETE FROM public.reports WHERE id = ${id} AND company_id = ${userComp}`;
+      } else {
+        await sql`DELETE FROM public.reports WHERE id = ${id}`;
+      }
+
+      return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: `Método ${req.method} no permitido.` });

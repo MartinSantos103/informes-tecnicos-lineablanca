@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql } from './db.js';
+import { getSql, getRequestContext } from './db.js';
 
 const DEFAULT_COMPANY = {
   name: 'Mi Empresa',
@@ -16,14 +16,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const sql = getSql();
+    const { user, companyId } = await getRequestContext(req, sql);
 
     if (req.method === 'GET') {
-      const rows = await sql`
-        SELECT id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
-        FROM public.companies
-        ORDER BY created_at ASC
-        LIMIT 1
-      `;
+      let rows: any[] = [];
+      if (companyId) {
+        rows = await sql`
+          SELECT id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
+          FROM public.companies
+          WHERE id = ${companyId}
+          LIMIT 1
+        `;
+      }
+
+      if (rows.length === 0) {
+        rows = await sql`
+          SELECT id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
+          FROM public.companies
+          ORDER BY created_at ASC
+          LIMIT 1
+        `;
+      }
 
       if (rows.length === 0) {
         return res.status(200).json(DEFAULT_COMPANY);
@@ -35,8 +48,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'PUT' || req.method === 'POST') {
       const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
-      // Obtener ID actual de la empresa
-      const existing = await sql`SELECT id FROM public.companies ORDER BY created_at ASC LIMIT 1`;
+      if (!companyId) {
+        return res.status(400).json({ error: 'No se identificó la empresa asociada al usuario.' });
+      }
+
+      // Seguridad: sólo rol admin puede editar datos de la empresa
+      if (user && user.role && user.role.toLowerCase() !== 'admin') {
+        return res.status(403).json({ error: 'No tienes permisos de administrador para modificar los datos de la empresa.' });
+      }
 
       // Actualización de campos
       const name = body.name ?? DEFAULT_COMPANY.name;
@@ -47,25 +66,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const website = body.website ?? '';
       const legal_notice = body.legal_notice ?? DEFAULT_COMPANY.legal_notice;
 
-      if (existing.length > 0) {
-        const updated = await sql`
-          UPDATE public.companies
-          SET name = ${name},
-              logo_url = ${logo_url},
-              address = ${address},
-              phone = ${phone},
-              email = ${email},
-              website = ${website},
-              legal_notice = ${legal_notice},
-              updated_at = timezone('utc'::text, now())
-          WHERE id = ${existing[0].id}
-          RETURNING id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
-        `;
+      const updated = await sql`
+        UPDATE public.companies
+        SET name = ${name},
+            logo_url = ${logo_url},
+            address = ${address},
+            phone = ${phone},
+            email = ${email},
+            website = ${website},
+            legal_notice = ${legal_notice},
+            updated_at = timezone('utc'::text, now())
+        WHERE id = ${companyId}
+        RETURNING id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
+      `;
+
+      if (updated.length > 0) {
         return res.status(200).json(updated[0]);
       } else {
         const inserted = await sql`
-          INSERT INTO public.companies (name, logo_url, address, phone, email, website, legal_notice)
-          VALUES (${name}, ${logo_url}, ${address}, ${phone}, ${email}, ${website}, ${legal_notice})
+          INSERT INTO public.companies (id, name, logo_url, address, phone, email, website, legal_notice)
+          VALUES (${companyId}, ${name}, ${logo_url}, ${address}, ${phone}, ${email}, ${website}, ${legal_notice})
           RETURNING id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
         `;
         return res.status(200).json(inserted[0]);
