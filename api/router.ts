@@ -74,7 +74,7 @@ async function dispatchRoute(pathname: string, req: any, res: any) {
       res.status(404).json({ error: `Ruta no encontrada: ${pathname}` });
     }
   } catch (err: any) {
-    console.error(`[API Dev Error ${pathname}]:`, err);
+    console.error('[API Dev Error %s]:', pathname, err);
     res.status(500).json({ error: err.message || 'Error interno en API' });
   }
 }

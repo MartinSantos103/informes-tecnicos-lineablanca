@@ -30,7 +30,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
   } catch (err: any) {
     const errorMessage = err?.message || 'Error inesperado al ejecutar Neon keep-alive';
-    console.error(`[keep-alive] [${timestamp}] EXCEPTION:`, errorMessage);
+    console.error('[keep-alive] [%s] EXCEPTION:', timestamp, errorMessage);
     return res.status(500).json({
       success: false,
       error: errorMessage,
