@@ -1,20 +1,26 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql } from './db.js';
+import { getSql } from '../db.js';
+import { loginSchema } from '../../src/shared/schemas.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function authHandler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   try {
     const sql = getSql();
 
     if (req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const email = body?.email?.trim()?.toLowerCase();
-      const password = body?.password;
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const parsed = loginSchema.safeParse(rawBody);
 
-      if (!email) {
-        return res.status(400).json({ error: 'El correo electrónico es requerido.' });
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Datos de inicio de sesión inválidos.',
+          details: parsed.error.flatten().fieldErrors,
+        });
       }
+
+      const email = parsed.data.email.trim().toLowerCase();
+      const password = parsed.data.password;
 
       // Buscar perfil en Neon por email o full_name, evaluando contraseña con pgcrypto si está en formato bcrypt
       const rows = await sql`
@@ -53,7 +59,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               WHERE id = ${userRow.id}
             `;
           } catch (migrateErr) {
-            console.warn('[api/auth] No se pudo rehashear contraseña:', migrateErr);
+            console.warn('[server/auth] No se pudo rehashear contraseña:', migrateErr);
           }
         }
       }
@@ -103,7 +109,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: `Método ${req.method} no permitido.` });
   } catch (err: any) {
-    console.error('[api/auth] Error:', err);
+    console.error('[server/auth] Error:', err);
     return res.status(500).json({ error: err.message || 'Error al autenticar en Neon' });
   }
 }

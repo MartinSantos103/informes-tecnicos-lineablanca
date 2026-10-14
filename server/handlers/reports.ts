@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql, getRequestContext } from './db.js';
+import { getSql, getRequestContext } from '../db.js';
+import { reportFormSchema } from '../../src/shared/schemas.js';
 
 function padReportNumber(num: number): string {
   return String(num).padStart(6, '0');
@@ -23,7 +24,7 @@ function normalizeReportRow(r: any) {
   };
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function reportsHandler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   try {
@@ -61,48 +62,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               FROM public.reports
               WHERE company_id = ${companyId}
             `;
-            nextVal = Number(maxRows[0]?.max_num || 0) + 1;
+            nextVal = (maxRows[0]?.max_num || 0) + 1;
           }
         }
-        return res.status(200).json({ nextReportNumber: padReportNumber(nextVal) });
+        return res.status(200).json({
+          nextReportNumber: padReportNumber(nextVal),
+          nextNumber: padReportNumber(nextVal),
+        });
       }
 
-      // 3. Obtener todos los informes de la empresa (sin paginar)
+      // 3. Listado sin paginación (para exportación completa si se solicita all=true)
       if (all === 'true') {
         const rows = companyId
-          ? await sql`
-              SELECT * FROM public.reports 
-              WHERE company_id = ${companyId}
-              ORDER BY date DESC, created_at DESC
-            `
-          : await sql`
-              SELECT * FROM public.reports 
-              ORDER BY date DESC, created_at DESC
-            `;
+          ? await sql`SELECT * FROM public.reports WHERE company_id = ${companyId} ORDER BY date DESC, created_at DESC`
+          : await sql`SELECT * FROM public.reports ORDER BY date DESC, created_at DESC`;
         return res.status(200).json(rows.map(normalizeReportRow));
       }
 
-      // 4. Consulta Paginada con Filtros
-      const validPage = Math.max(1, parseInt(page as string, 10) || 1);
-      const validPageSize = Math.max(1, parseInt(pageSize as string, 10) || 8);
-      const offset = (validPage - 1) * validPageSize;
+      // 4. Listado paginado con filtros y búsqueda optimizada
+      const currentPage = Math.max(1, parseInt(String(page || '1'), 10));
+      const validPageSize = Math.max(1, Math.min(100, parseInt(String(pageSize || '10'), 10)));
+      const offset = (currentPage - 1) * validPageSize;
 
-      const q = typeof searchQuery === 'string' && searchQuery.trim() ? `%${searchQuery.trim().toLowerCase()}%` : null;
-      const eq = typeof equipment === 'string' && equipment !== 'ALL' && equipment.trim() ? equipment.trim() : null;
+      const q = typeof searchQuery === 'string' && searchQuery.trim() !== '' ? `%${searchQuery.trim().toLowerCase()}%` : null;
+      const eq = typeof equipment === 'string' && equipment.trim() !== '' && equipment.trim().toLowerCase() !== 'all' ? equipment.trim() : null;
 
-      // Para soportar ordenamiento dinámico seguro en Neon SQL
       let orderClause = 'ORDER BY date DESC, created_at DESC';
-      if (sortBy === 'date_asc') {
+      if (sortBy === 'oldest' || sortBy === 'date_asc') {
         orderClause = 'ORDER BY date ASC, created_at ASC';
+      } else if (sortBy === 'number_desc') {
+        orderClause = 'ORDER BY report_number DESC, date DESC';
       } else if (sortBy === 'cost_desc') {
         orderClause = 'ORDER BY estimated_cost DESC';
       } else if (sortBy === 'cost_asc') {
         orderClause = 'ORDER BY estimated_cost ASC';
-      } else if (sortBy === 'number_desc') {
-        orderClause = 'ORDER BY report_number DESC';
       }
 
-      // Usar sql.query para composición con WHERE dinámico
       const conditions: string[] = ['1=1'];
       const params: any[] = [];
       let pIdx = 1;
@@ -159,40 +154,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         data: dataResult.map(normalizeReportRow),
         totalCount,
         totalPages,
-        currentPage: Math.min(validPage, totalPages),
+        currentPage,
         pageSize: validPageSize,
       });
     }
 
     if (req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+
+      // Validación con Zod
+      const parsed = reportFormSchema.safeParse(rawBody);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Datos de informe inválidos.',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const validData = parsed.data;
 
       // Obtener company_id y user_id de la sesión o del cuerpo
-      let targetCompanyId = body.company_id || companyId;
+      let targetCompanyId = rawBody.company_id || companyId;
       if (!targetCompanyId) {
         const compRows = await sql`SELECT id FROM public.companies ORDER BY created_at ASC LIMIT 1`;
         targetCompanyId = compRows[0]?.id;
       }
 
-      let createdBy = body.created_by || user?.id;
+      let createdBy = rawBody.created_by || user?.id;
       if (!createdBy) {
         const profRows = await sql`SELECT id FROM public.profiles WHERE company_id = ${targetCompanyId} LIMIT 1`;
         createdBy = profRows[0]?.id;
       }
-
-      const date = body.date || new Date().toISOString().split('T')[0];
-      const clientName = body.client_name || '';
-      const address = body.address || '';
-      const phone = body.phone || '';
-      const email = body.email || '';
-      const brand = body.brand || '';
-      const model = body.model || '';
-      const equipment = body.equipment || '';
-      const serialNumber = body.serial_number || '-';
-      const diagnosis = body.diagnosis || '';
-      const cause = body.cause || '';
-      const workDescription = body.work_description || '';
-      const estimatedCost = Number(body.estimated_cost) || 0;
 
       // Inserción en public.reports
       // El trigger handle_report_insert() generará automáticamente el correlativo y actualizará el contador por empresa
@@ -216,19 +208,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ) VALUES (
           ${targetCompanyId},
           ${createdBy},
-          ${date},
-          ${clientName},
-          ${address},
-          ${phone},
-          ${email},
-          ${brand},
-          ${model},
-          ${equipment},
-          ${serialNumber},
-          ${diagnosis},
-          ${cause},
-          ${workDescription},
-          ${estimatedCost}
+          ${validData.date},
+          ${validData.client_name},
+          ${validData.address},
+          ${validData.phone},
+          ${validData.email || ''},
+          ${validData.brand},
+          ${validData.model},
+          ${validData.equipment},
+          ${validData.serial_number || '-'},
+          ${validData.diagnosis},
+          ${validData.cause || ''},
+          ${validData.work_description},
+          ${validData.estimated_cost}
         )
         RETURNING *
       `;
@@ -267,7 +259,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: `Método ${req.method} no permitido.` });
   } catch (err: any) {
-    console.error('[api/reports] Error:', err);
+    console.error('[server/reports] Error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor en Neon' });
   }
 }

@@ -1,7 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql, getRequestContext } from './db.js';
+import { getSql, getRequestContext } from '../db.js';
+import { staffCreateSchema } from '../../src/shared/schemas.js';
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function staffHandler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   try {
@@ -26,12 +27,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-      const { email, password, role } = body;
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const parsed = staffCreateSchema.safeParse(rawBody);
 
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Datos de usuario inválidos.',
+          details: parsed.error.flatten().fieldErrors,
+        });
       }
+
+      const { email, password, role } = parsed.data;
 
       if (!companyId) {
         return res.status(400).json({ error: 'No se identificó la empresa asociada.' });
@@ -110,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: `Método ${req.method} no permitido.` });
   } catch (err: any) {
-    console.error('[api/staff] Error:', err);
+    console.error('[server/staff] Error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor' });
   }
 }

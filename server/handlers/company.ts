@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getSql, getRequestContext } from './db.js';
+import { getSql, getRequestContext } from '../db.js';
+import { companySettingsSchema } from '../../src/shared/schemas.js';
 
 const DEFAULT_COMPANY = {
   name: 'Mi Empresa',
@@ -11,7 +12,7 @@ const DEFAULT_COMPANY = {
     'Esta estimación no es un contrato o factura. Es nuestra mejor conjetura en el precio total para realizar el trabajo en base a una inspección inicial, la cual esta sujeta a cambios, según requieran piezas o trabajos adicionales, los cuales se comunican oportunamente.',
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function companyHandler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
 
   try {
@@ -46,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'PUT' || req.method === 'POST') {
-      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      const rawBody = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       if (!companyId) {
         return res.status(400).json({ error: 'No se identificó la empresa asociada al usuario.' });
@@ -57,24 +58,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(403).json({ error: 'No tienes permisos de administrador para modificar los datos de la empresa.' });
       }
 
-      // Actualización de campos
-      const name = body.name ?? DEFAULT_COMPANY.name;
-      const logo_url = body.logo_url ?? null;
-      const address = body.address ?? DEFAULT_COMPANY.address;
-      const phone = body.phone ?? DEFAULT_COMPANY.phone;
-      const email = body.email ?? DEFAULT_COMPANY.email;
-      const website = body.website ?? '';
-      const legal_notice = body.legal_notice ?? DEFAULT_COMPANY.legal_notice;
+      const parsed = companySettingsSchema.safeParse(rawBody);
+      if (!parsed.success) {
+        return res.status(400).json({
+          error: 'Datos de empresa inválidos.',
+          details: parsed.error.flatten().fieldErrors,
+        });
+      }
+
+      const { name, logo_url, address, phone, email, website, legal_notice } = parsed.data;
 
       const updated = await sql`
         UPDATE public.companies
         SET name = ${name},
-            logo_url = ${logo_url},
+            logo_url = ${logo_url || null},
             address = ${address},
             phone = ${phone},
             email = ${email},
-            website = ${website},
-            legal_notice = ${legal_notice},
+            website = ${website || ''},
+            legal_notice = ${legal_notice || DEFAULT_COMPANY.legal_notice},
             updated_at = timezone('utc'::text, now())
         WHERE id = ${companyId}
         RETURNING id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
@@ -85,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } else {
         const inserted = await sql`
           INSERT INTO public.companies (id, name, logo_url, address, phone, email, website, legal_notice)
-          VALUES (${companyId}, ${name}, ${logo_url}, ${address}, ${phone}, ${email}, ${website}, ${legal_notice})
+          VALUES (${companyId}, ${name}, ${logo_url || null}, ${address}, ${phone}, ${email}, ${website || ''}, ${legal_notice || DEFAULT_COMPANY.legal_notice})
           RETURNING id, name, logo_url, address, phone, email, website, legal_notice, created_at, updated_at
         `;
         return res.status(200).json(inserted[0]);
@@ -94,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: `Método ${req.method} no permitido.` });
   } catch (err: any) {
-    console.error('[api/company] Error:', err);
+    console.error('[server/company] Error:', err);
     return res.status(500).json({ error: err.message || 'Error interno del servidor en Neon' });
   }
 }
